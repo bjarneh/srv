@@ -1,0 +1,271 @@
+#!/bin/bash
+#
+#  Copyright © 2013 bjarneh@ifi.uio.no
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+# globals
+
+ACTION="help"
+NO_ANSI_COLOR=""
+FILTER="*.war"
+ANSI_RED="\033[0;31m"
+ANSI_GREEN="\033[0;32m"
+ANSI_NORMAL="\033[0m"
+
+
+function die(){
+    if [ ! -z "${1}" ]; then
+        if [ "${NO_ANSI_COLOR}" ]; then
+            echo -e >&2 "[ERROR] ${1}"
+        else
+            echo -e >&2 "[${ANSI_RED}ERROR${ANSI_NORMAL}] ${1}"
+        fi
+    fi
+    exit 1
+}
+
+function info(){
+    if [ "${NO_ANSI_COLOR}" ]; then
+        echo -en "[srv] "
+    else
+        echo -en "[${ANSI_GREEN}srv${ANSI_NORMAL}] "
+    fi
+    echo -e "${1}"
+}
+
+
+function sanity(){
+
+    if [ -z "${CATALINA_HOME}" ]; then
+        die "missing \$CATALINA_HOME"
+    fi
+
+}
+
+
+function menu_exit(){
+cat <<EOH
+
+ srv - apache helper script
+
+ usage: srv ACTION [OPTIONS]
+
+ Possible actions:
+
+    help   print this menu and exit(0)
+    list   list information about server setup
+    drop   remove war files from webapps (alias: clean)
+    fire   fire up your tomcat server (alias: start)
+    stop   stop your tomcat server
+    anew   restart tomcat (alias: restart)
+    tail   tail -f \$CATALINA_HOME/logs/catalina.out
+
+ Possible options:                                                              
+                                                                                
+    -n     never print ANSI control sequences (colors)                          
+    -f     filter for drop target (default: *.war)
+
+EOH
+    exit 0
+}
+
+
+function action(){
+
+    case "${1}" in
+        'list' | 'l' | 'li' | '-l' | '-list' | '--list')
+            ACTION='list';;
+        'drop' | 'clean' | 'd' | 'dr' | '-d' | '-drop' | '--drop')
+            ACTION='drop';;
+        'fire' | 'start' | 'f' | 'fi' | '-f' | '-fire' | '--fire')
+            ACTION='fire';;
+        'stop' | 's' | 'st' | '-s' | '-stop' | '--stop')
+            ACTION='stop';;
+        'anew' | 'a' | 'n' | '-a' | '-anew' | '--anew' | 'restart')
+            ACTION='anew';;
+        'tail' | 't' | '-tail' | '--tail')
+            ACTION='tail';;
+        'test')
+            ACTION='test';;
+        *) # '-help' 'help' will work as well naturally
+            ACTION='help';;
+    esac
+
+    return 0
+
+}
+
+#TODO add more info
+function list_info(){
+
+    echo -e "\nSERVER INFO"
+
+    if [ "${NO_ANSI_COLOR}" ]; then
+        echo -e "\n CATALINA_HOME=${CATALINA_HOME}"
+    else
+        echo -e "\n ${ANSI_GREEN}CATALINA_HOME${ANSI_NORMAL}=${CATALINA_HOME}"
+    fi
+
+    echo ""
+}
+
+function is_tomcat_running(){
+    
+    local is_running
+    is_running=$(ps -ef | grep -i java| grep -i tomcat | grep -v grep)
+
+    if [ -z "${is_running}" ]; then
+        return 1
+    else
+        return 0
+    fi
+
+}
+
+function start_tomcat(){
+
+    local is_running
+
+    is_tomcat_running && is_running="ok" || is_running=""
+
+    if [ ! -z "${is_running}" ]; then
+        die "tomcat is already running"
+    else
+        info "starting tomcat"
+    fi
+
+    cd "${CATALINA_HOME}"/bin && ./startup.sh 1>/dev/null
+
+}
+
+
+function stop_tomcat(){
+
+    local is_running
+    local secs
+
+    let secs=0
+
+    is_tomcat_running && is_running="ok" || is_running=""
+
+    if [ -z "${is_running}" ]; then
+        die "tomcat does not seem to be running"
+    else
+        info "stopping tomcat"
+    fi
+
+    cd "${CATALINA_HOME}"/bin
+
+    ./shutdown.sh 1>/dev/null
+    is_tomcat_running && is_running="ok" || is_running=""
+
+    while [ ! -z "${is_running}" -a \( "${secs}" != "10" \) ];
+    do
+        info "waiting for tomcat to stop.. (${secs} sec)"
+        sleep 1
+        let secs=secs+1
+        is_tomcat_running && is_running="ok" || is_running=""
+    done
+
+    if [ "${secs}" == "10" ]; then
+        die "giving up, tomcat did not stop within 10 seconds"
+    fi
+
+}
+
+function restart_tomcat(){
+    
+    stop_tomcat
+    start_tomcat
+
+}
+
+function drop_wars(){
+    
+    info "cd \$CATALINA_HOME/webapps"
+    cd "${CATALINA_HOME}"/webapps || die ""
+
+    info "rm -rf ${FILTER}"
+    rm -rf "${FILTER}"
+}
+
+
+function tail_log(){
+
+    tail -f "${CATALINA_HOME}"/logs/catalina.out
+
+}
+
+function test_stuff(){
+    
+    echo "just a place to test stuff, unit testing in Bash :-"
+
+}
+
+function parse_argv(){
+
+    while getopts ":nf:" opt "${@}"; do
+        case "${opt}" in
+        'n')
+            NO_ANSI_COLOR="NADA";;
+        'f')
+            FILTER="${OPTARG}";;
+        ':')
+            die "Missing argument for -${OPTARG}";;
+        \?)
+            die "Invalid option: -${OPTARG}";;
+        esac
+    done
+
+    return 0
+
+}
+
+
+#main
+{
+    # variable test
+    sanity
+
+    # action switch
+    action "${@}"
+    shift
+
+    # parse command line options
+    parse_argv "${@}"        
+
+    # do something
+    case "${ACTION}" in
+        'list')
+            list_info;;
+        'help')
+            menu_exit;;
+        'fire')
+            start_tomcat;;
+        'stop')
+            stop_tomcat;;
+        'anew')
+            restart_tomcat;;
+        'drop')
+            drop_wars;;
+        'tail')
+            tail_log;;
+        'test')
+            test_stuff;;
+    esac
+
+}
+
