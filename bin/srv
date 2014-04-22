@@ -111,15 +111,13 @@ function action(){
 #TODO add more info
 function list_info(){
 
-    echo -e "\nSERVER INFO"
-
-    if [ "${NO_ANSI_COLOR}" ]; then
-        echo -e "\n CATALINA_HOME=${CATALINA_HOME}"
+    is_tomcat_running && is_running="ok" || is_running=""
+    if [ -z "${is_running}"  ]; then
+        info "Tomcat is not running"
     else
-        echo -e "\n ${ANSI_GREEN}CATALINA_HOME${ANSI_NORMAL}=${CATALINA_HOME}"
+        info "Tomcat is running"
     fi
-
-    echo ""
+    info "CATALINA_HOME=${CATALINA_HOME}" 
 }
 
 function is_tomcat_running(){
@@ -169,7 +167,7 @@ function stop_tomcat(){
 
     cd "${CATALINA_HOME}"/bin
 
-    ./shutdown.sh 1>/dev/null
+    ./shutdown.sh -force 1>/dev/null
     is_tomcat_running && is_running="ok" || is_running=""
 
     while [ ! -z "${is_running}" -a \( "${secs}" != "10" \) ];
@@ -211,7 +209,7 @@ function tail_log(){
 
 function test_stuff(){
     
-    echo "just a place to test stuff, unit testing in Bash :-"
+    echo "just a place to test stuff, unit testing in Bash :-p"
 
 }
 
