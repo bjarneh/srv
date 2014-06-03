@@ -117,7 +117,17 @@ function list_info(){
     else
         info "Tomcat is running"
     fi
-    info "CATALINA_HOME=${CATALINA_HOME}" 
+    info "CATALINA_HOME=${CATALINA_HOME}"
+    info "CATALINA_BASE=${CATALINA_BASE}"
+
+    local deploymens=$(ls ${CATALINA_BASE}/webapps/*| grep '.war')
+    local wars=''
+
+    for d in ${deploymens};
+    do
+        wars="$wars $(basename ${d})"
+    done
+    info "DEPLOYED WARS=${wars}"
 }
 
 function is_tomcat_running(){
