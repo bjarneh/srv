@@ -59,7 +59,7 @@ function sanity(){
 function menu_exit(){
 cat <<EOH
 
- srv - apache helper script
+ srv - apache tomcat helper script
 
  usage: srv ACTION [OPTIONS]
 
@@ -119,6 +119,7 @@ function list_info(){
     fi
     info "CATALINA_HOME=${CATALINA_HOME}"
     info "CATALINA_BASE=${CATALINA_BASE}"
+    info "    JAVA_OPTS=${JAVA_OPTS}"
 
     local deploymens=$(ls ${CATALINA_BASE}/webapps/*| grep '.war')
     local wars=''
