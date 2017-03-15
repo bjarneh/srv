@@ -21,12 +21,13 @@
 ACTION="help"
 NO_ANSI_COLOR=""
 FILTER="*.war"
+TAIL_FROM='50'
 ANSI_RED="\033[0;31m"
 ANSI_GREEN="\033[0;32m"
 ANSI_NORMAL="\033[0m"
 
 
-function die(){
+die(){
     if [ ! -z "${1}" ]; then
         if [ "${NO_ANSI_COLOR}" ]; then
             echo -e >&2 "[ERROR] ${1}"
@@ -37,7 +38,7 @@ function die(){
     exit 1
 }
 
-function info(){
+info(){
     if [ "${NO_ANSI_COLOR}" ]; then
         echo -en "[srv] "
     else
@@ -47,7 +48,7 @@ function info(){
 }
 
 
-function sanity(){
+sanity(){
 
     if [ -z "${CATALINA_HOME}" ]; then
         die "missing \$CATALINA_HOME"
@@ -56,7 +57,7 @@ function sanity(){
 }
 
 
-function menu_exit(){
+menu_exit(){
 cat <<EOH
 
  srv - apache tomcat helper script
@@ -71,11 +72,12 @@ cat <<EOH
     fire   fire up your tomcat server (alias: start)
     stop   stop your tomcat server
     anew   restart tomcat (alias: restart)
-    tail   tail -f \$CATALINA_HOME/logs/catalina.out
+    tail   tail -F \$CATALINA_HOME/logs/catalina.out
 
  Possible options:                                                              
                                                                                 
     -n     never print ANSI control sequences (colors)                          
+    -N     N number of lines included in tail
     -f     filter for drop target (default: *.war)
 
 EOH
@@ -83,7 +85,7 @@ EOH
 }
 
 
-function action(){
+action(){
 
     case "${1}" in
         'list' | 'l' | 'li' | '-l' | '-list' | '--list')
@@ -109,7 +111,7 @@ function action(){
 }
 
 #TODO add more info
-function list_info(){
+list_info(){
 
     is_tomcat_running && is_running="ok" || is_running=""
     if [ -z "${is_running}"  ]; then
@@ -131,7 +133,7 @@ function list_info(){
     info "DEPLOYED WARS=${wars}"
 }
 
-function is_tomcat_running(){
+is_tomcat_running(){
     
     local is_running
     is_running=$(ps -ef | grep -i java| grep -i tomcat | grep -v grep)
@@ -144,7 +146,7 @@ function is_tomcat_running(){
 
 }
 
-function start_tomcat(){
+start_tomcat(){
 
     local is_running
 
@@ -161,7 +163,7 @@ function start_tomcat(){
 }
 
 
-function stop_tomcat(){
+stop_tomcat(){
 
     local is_running
     local secs
@@ -195,14 +197,14 @@ function stop_tomcat(){
 
 }
 
-function restart_tomcat(){
+restart_tomcat(){
     
     stop_tomcat
     start_tomcat
 
 }
 
-function drop_wars(){
+drop_wars(){
     
     info "cd \$CATALINA_HOME/webapps"
     cd "${CATALINA_HOME}"/webapps || die ""
@@ -212,24 +214,26 @@ function drop_wars(){
 }
 
 
-function tail_log(){
+tail_log(){
 
-    tail -f "${CATALINA_HOME}"/logs/catalina.out
+    tail -F -n "${TAIL_FROM}" "${CATALINA_HOME}"/logs/catalina.out
 
 }
 
-function test_stuff(){
+test_stuff(){
     
     echo "just a place to test stuff, unit testing in Bash :-p"
 
 }
 
-function parse_argv(){
+parse_argv(){
 
-    while getopts ":nf:" opt "${@}"; do
+    while getopts ":nN:f:" opt "${@}"; do
         case "${opt}" in
         'n')
             NO_ANSI_COLOR="NADA";;
+        'N')
+            TAIL_FROM="${OPTARG}";;
         'f')
             FILTER="${OPTARG}";;
         ':')
