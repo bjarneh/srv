@@ -220,9 +220,31 @@ tail_log(){
 
 }
 
+
 test_stuff(){
     
     echo "just a place to test stuff, unit testing in Bash :-p"
+
+    local tomcat_logdir
+    local tomcat_access_log_file
+    local tomcat_access_path
+    local tomcat_access_log_fmt="localhost_access_log.%Y-%m-%d.txt"
+    local tomcat_version
+
+    if [ -z "${CATALINA_HOME}" ]; then
+        tomcat_version=$(ls /var/log/ | grep tomcat | sort -V | tail -1)
+        tomcat_logdir="/var/log/${tomcat_version}"
+    else
+        tomcat_logdir="${CATALINA_HOME}"/logs
+    fi
+
+    if [ ! -z "${tomcat_logdir}" ]; then
+        tomcat_access_log_file=$(date +"${tomcat_access_log_fmt}")
+        tomcat_access_path="${tomcat_logdir}/${tomcat_access_log_file}"
+        if [ -f "${tomcat_access_path}" ]; then
+            tail -F -n "${TAIL_FROM}" "${tomcat_access_path}"
+        fi
+    fi
 
 }
 
