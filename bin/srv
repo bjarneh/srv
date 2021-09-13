@@ -19,7 +19,8 @@
 # globals
 
 ACTION="help"
-NO_ANSI_COLOR=""
+USE_ANSI_COLOR="yes"
+GUESS_CATALINA_HOME="no"
 FILTER="*.war"
 TAIL_FROM='50'
 ANSI_RED="\033[0;31m"
@@ -29,7 +30,7 @@ ANSI_NORMAL="\033[0m"
 
 die(){
     if [ ! -z "${1}" ]; then
-        if [ "${NO_ANSI_COLOR}" ]; then
+        if [ "${USE_ANSI_COLOR}" = "no" ]; then
             echo -e >&2 "[ERROR] ${1}"
         else
             echo -e >&2 "[${ANSI_RED}ERROR${ANSI_NORMAL}] ${1}"
@@ -38,8 +39,9 @@ die(){
     exit 1
 }
 
+
 info(){
-    if [ "${NO_ANSI_COLOR}" ]; then
+    if [ "${USE_ANSI_COLOR}" = "no" ]; then
         echo -en "[srv] "
     else
         echo -en "[${ANSI_GREEN}srv${ANSI_NORMAL}] "
@@ -49,6 +51,13 @@ info(){
 
 
 sanity(){
+
+    local tomcat_version
+
+    if [ -z "${CATALINA_HOME}" -a "${GUESS_CATALINA_HOME}" = "yes" ]; then
+        tomcat_version=$(ls /var/lib/ | grep tomcat | sort -V | tail -1)
+        CATALINA_HOME="/var/lib/${tomcat_version}"
+    fi
 
     if [ -z "${CATALINA_HOME}" ]; then
         die "missing \$CATALINA_HOME"
@@ -72,12 +81,14 @@ cat <<EOH
     fire   fire up your tomcat server (alias: start)
     stop   stop your tomcat server
     anew   restart tomcat (alias: restart)
+    alog   tail tomcat access log (alias: access)
     tail   tail -F \$CATALINA_HOME/logs/catalina.out
 
- Possible options:                                                              
-                                                                                
-    -n     never print ANSI control sequences (colors)                          
+ Possible options:
+
+    -n     never print ANSI control sequences (colors)
     -N     N number of lines included in tail
+    -c     guess CATALINA_HOME on *nix (/var/lib/tomcat\\d+)
     -f     filter for drop target (default: *.war)
 
 EOH
@@ -98,6 +109,8 @@ action(){
             ACTION='stop';;
         'anew' | 'a' | 'n' | '-a' | '-anew' | '--anew' | 'restart')
             ACTION='anew';;
+        'alog' | 'A' | '-A' | '-alog' | '--alog' | 'access')
+            ACTION='alog';;
         'tail' | 't' | '-tail' | '--tail')
             ACTION='tail';;
         'test')
@@ -204,6 +217,7 @@ restart_tomcat(){
 
 }
 
+
 drop_wars(){
     
     info "cd \$CATALINA_HOME/webapps"
@@ -211,6 +225,30 @@ drop_wars(){
 
     info "rm -rf ${FILTER}"
     rm -rf ${FILTER}
+}
+
+
+tail_access(){
+
+    local tomcat_access_path
+    local tomcat_access_log_file
+    local tomcat_access_log_fmt="localhost_access_log.%Y-%m-%d.txt"
+
+    if [ ! -z "${CATALINA_HOME}" ]; then
+
+        tomcat_access_log_file=$(date +"${tomcat_access_log_fmt}")
+        tomcat_access_path="${CATALINA_HOME}/logs/${tomcat_access_log_file}"
+
+        if [ -f "${tomcat_access_path}" ]; then
+            tail -F -n "${TAIL_FROM}" "${tomcat_access_path}"
+        else
+            die "No access log-file: ${tomcat_access_path}"
+        fi
+
+    else
+        die "missing \$CATALINA_HOME"
+    fi
+
 }
 
 
@@ -222,38 +260,20 @@ tail_log(){
 
 
 test_stuff(){
-    
+
     echo "just a place to test stuff, unit testing in Bash :-p"
-
-    local tomcat_logdir
-    local tomcat_access_log_file
-    local tomcat_access_path
-    local tomcat_access_log_fmt="localhost_access_log.%Y-%m-%d.txt"
-    local tomcat_version
-
-    if [ -z "${CATALINA_HOME}" ]; then
-        tomcat_version=$(ls /var/log/ | grep tomcat | sort -V | tail -1)
-        tomcat_logdir="/var/log/${tomcat_version}"
-    else
-        tomcat_logdir="${CATALINA_HOME}"/logs
-    fi
-
-    if [ ! -z "${tomcat_logdir}" ]; then
-        tomcat_access_log_file=$(date +"${tomcat_access_log_fmt}")
-        tomcat_access_path="${tomcat_logdir}/${tomcat_access_log_file}"
-        if [ -f "${tomcat_access_path}" ]; then
-            tail -F -n "${TAIL_FROM}" "${tomcat_access_path}"
-        fi
-    fi
 
 }
 
+
 parse_argv(){
 
-    while getopts ":nN:f:" opt "${@}"; do
+    while getopts ":ncN:f:" opt "${@}"; do
         case "${opt}" in
         'n')
-            NO_ANSI_COLOR="NADA";;
+            USE_ANSI_COLOR="no";;
+        'c')
+            GUESS_CATALINA_HOME="yes";;
         'N')
             TAIL_FROM="${OPTARG}";;
         'f')
@@ -272,15 +292,15 @@ parse_argv(){
 
 #main
 {
-    # variable test
-    sanity
-
     # action switch
     action "${@}"
     shift
 
     # parse command line options
     parse_argv "${@}"        
+
+    # variable test
+    sanity
 
     # do something
     case "${ACTION}" in
@@ -294,6 +314,8 @@ parse_argv(){
             stop_tomcat;;
         'anew')
             restart_tomcat;;
+        'alog')
+            tail_access;;
         'drop')
             drop_wars;;
         'tail')
@@ -303,4 +325,3 @@ parse_argv(){
     esac
 
 }
-

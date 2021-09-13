@@ -29,6 +29,8 @@ _srv(){
              stop\
              start\
              anew\
+             alog\
+             access\
              clean\
              tail\
              restart"
