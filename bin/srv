@@ -54,15 +54,18 @@ sanity(){
 
     local tomcat_version
 
-    if [ -z "${CATALINA_HOME}" -a "${GUESS_CATALINA_HOME}" = "yes" ]; then
-        tomcat_version=$(ls /var/lib/ | grep tomcat | sort -V | tail -1)
-        CATALINA_HOME="/var/lib/${tomcat_version}"
-    fi
+    if [ "${ACTION}" != "help" ]; then
 
-    if [ -z "${CATALINA_HOME}" ]; then
-        die "missing \$CATALINA_HOME"
-    fi
+        if [ -z "${CATALINA_HOME}" -a "${GUESS_CATALINA_HOME}" = "yes" ]; then
+            tomcat_version=$(ls /var/lib/ | grep tomcat | sort -V | tail -1)
+            CATALINA_HOME="/var/lib/${tomcat_version}"
+        fi
 
+        if [ -z "${CATALINA_HOME}" ]; then
+            die "missing \$CATALINA_HOME"
+        fi
+
+    fi
 }
 
 
