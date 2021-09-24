@@ -58,13 +58,16 @@ sanity(){
 
         if [ -z "${CATALINA_HOME}" -a "${GUESS_CATALINA_HOME}" = "yes" ]; then
             tomcat_version=$(ls /var/lib/ | grep tomcat | sort -V | tail -1)
+            if [ -z "${tomcat_version}" ]; then
+                die "no tomcat install found in /var/lib/"
+            fi
             CATALINA_HOME="/var/lib/${tomcat_version}"
+            CATALINA_BASE="/usr/share/${tomcat_version}"
         fi
 
         if [ -z "${CATALINA_HOME}" ]; then
             die "missing \$CATALINA_HOME"
         fi
-
     fi
 }
 
@@ -139,7 +142,7 @@ list_info(){
     info "CATALINA_BASE=${CATALINA_BASE}"
     info "    JAVA_OPTS=${JAVA_OPTS}"
 
-    local deploymens=$(ls ${CATALINA_BASE}/webapps/*| grep '.war')
+    local deploymens=$(ls ${CATALINA_HOME}/webapps/*| grep '.war')
     local wars=''
 
     for d in ${deploymens};
